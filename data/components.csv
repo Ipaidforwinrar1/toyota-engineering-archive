@@ -1,0 +1,62 @@
+canonical_name,system_name,description
+ECM,Engine Control,Engine control module.
+Fuel Injector,Fuel System,Electronically controlled fuel injector.
+Fuel Pump,Fuel System,Pump supplying fuel to the engine.
+Fuel Pressure Regulator,Fuel System,Regulates fuel pressure.
+Fuel Rail,Fuel System,Distributes fuel to injectors.
+Throttle Body,Air Intake,Throttle body and throttle valve assembly.
+Throttle Position Sensor,Engine Control,Measures throttle position.
+Intake Manifold,Air Intake,Intake manifold assembly.
+Exhaust Manifold,Exhaust,Exhaust manifold assembly.
+ACIS,Air Intake,Acoustic Control Induction System.
+ACIS VSV,Air Intake,Vacuum switching valve for ACIS.
+Vacuum Tank,Air Intake,Vacuum reservoir.
+Mass Air Flow Meter,Engine Control,Measures intake air flow.
+Engine Coolant Temperature Sensor,Engine Control,Measures coolant temperature.
+Knock Sensor,Engine Control,Detects engine knock.
+Oxygen Sensor,Emission Control,Exhaust oxygen sensor.
+Crankshaft Position Sensor,Engine Control,Detects crankshaft position.
+Camshaft Position Sensor,Engine Control,Detects camshaft position.
+Ignition Coil,Ignition,Ignition coil assembly.
+Spark Plug,Ignition,Spark plug.
+Starter,Starting,Starter motor.
+Alternator,Charging,Alternator/generator.
+Battery,Electrical,Vehicle battery.
+Water Pump,Cooling,Engine coolant pump.
+Radiator,Cooling,Engine radiator.
+Cooling Fan,Cooling,Radiator cooling fan.
+Thermostat,Cooling,Engine cooling thermostat.
+Oil Pump,Lubrication,Engine or transmission oil pump.
+Cylinder Head,Engine Mechanical,Cylinder head assembly.
+Cylinder Block,Engine Mechanical,Cylinder block assembly.
+Crankshaft,Engine Mechanical,Engine crankshaft.
+Camshaft,Engine Mechanical,Engine camshaft.
+Piston,Engine Mechanical,Engine piston.
+Connecting Rod,Engine Mechanical,Engine connecting rod.
+Timing Belt,Engine Mechanical,Engine timing belt.
+Torque Converter,Automatic Transmission,Hydraulic torque converter.
+Valve Body,Automatic Transmission,Transmission hydraulic valve body.
+Shift Solenoid,Automatic Transmission,Transmission shift solenoid valve.
+Planetary Gear,Automatic Transmission,Planetary gear assembly.
+One-Way Clutch,Automatic Transmission,Transmission one-way clutch.
+ABS ECU,Brake Control,Anti-lock brake control ECU.
+Wheel Speed Sensor,Brake Control,Wheel speed sensor.
+Brake Master Cylinder,Brakes,Brake master cylinder.
+Brake Booster,Brakes,Brake booster.
+Brake Caliper,Brakes,Disc brake caliper.
+Brake Disc,Brakes,Brake disc/rotor.
+Brake Pad,Brakes,Disc brake pad.
+VSC ECU,Brake Control,Vehicle stability control ECU.
+Combination Meter,Instrumentation,Instrument cluster.
+Body ECU,Body Electrical,Body electronic control unit.
+Door ECU,Body Electrical,Door electronic control unit.
+Rear Junction Block ECU,Body Electrical,Rear junction block ECU.
+Immobiliser ECU,Security,Engine immobiliser ECU.
+Fuse,Electrical,Electrical fuse.
+Relay,Electrical,Electrical relay.
+Connector,Electrical,Electrical connector.
+Air Conditioning Amplifier,Air Conditioning,Air conditioning control amplifier.
+Blower Motor,Air Conditioning,HVAC blower motor.
+Damper Servomotor,Air Conditioning,HVAC damper servomotor.
+Power Seat ECU,Body Electrical,Power seat control ECU.
+Seat Motor,Body Electrical,Electric seat adjustment motor.

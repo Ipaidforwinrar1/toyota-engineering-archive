@@ -1,0 +1,32 @@
+canonical_name,alias
+ECM,Engine ECU
+ECM,Engine Control Module
+ECM,Engine Control Computer
+Fuel Injector,Injector
+Fuel Pressure Regulator,Pressure Regulator
+Throttle Body,Throttle Body Assembly
+Throttle Body,Throttle Valve
+ACIS,Acoustic Control Induction System
+ACIS VSV,VSV for ACIS
+Mass Air Flow Meter,Air Flow Meter
+Mass Air Flow Meter,MAF Sensor
+Engine Coolant Temperature Sensor,ECT Sensor
+Oxygen Sensor,O2 Sensor
+Crankshaft Position Sensor,Crank Position Sensor
+Camshaft Position Sensor,Cam Position Sensor
+Alternator,Generator
+Cooling Fan,Radiator Fan
+Valve Body,Transmission Valve Body
+Shift Solenoid,Solenoid Valve
+One-Way Clutch,One Way Clutch
+ABS ECU,Skid Control ECU
+Wheel Speed Sensor,Speed Sensor
+Brake Master Cylinder,Master Cylinder
+Brake Caliper,Disc Brake Caliper
+Brake Disc,Brake Rotor
+Combination Meter,Instrument Cluster
+Body ECU,Body Control ECU
+Rear Junction Block ECU,Rear J/B ECU
+Immobiliser ECU,Transponder Key ECU
+Air Conditioning Amplifier,A/C Amplifier
+Damper Servomotor,Damper Servo Motor
