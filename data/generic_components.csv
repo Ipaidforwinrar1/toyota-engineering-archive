@@ -1,0 +1,6 @@
+canonical_name,quality_weight,notes
+Battery,0.35,Safety and prerequisite mentions are common; often not the procedure subject.
+Connector,0.20,Very generic electrical term; often mentioned as a substep.
+Fuse,0.35,Generic electrical protection device.
+Relay,0.40,Generic electrical control device.
+Starter,0.55,Can be a true component, but appears in system-level starting text.

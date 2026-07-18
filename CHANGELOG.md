@@ -1,5 +1,51 @@
 # Changelog
 
+## v0.4.3-dev - Knowledge Quality
+
+### Added
+
+- Added `component_quality` metadata for generic/downweighted components.
+- Added `data/generic_components.csv`.
+- Added confidence scoring for `document_components`.
+- Added confidence scoring for `procedures`.
+- Added confidence-weighted component search ranking.
+- Added generic component markers in component search output.
+- Added `docs/KNOWLEDGE_QUALITY_v0.4.3.md`.
+- Added tests for generic component confidence downweighting.
+
+### Changed
+
+- Confidence scoring now checks component aliases as well as canonical component names.
+- `stats` now reports generic component count and low-confidence component rows.
+
+### Notes
+
+- v0.4.3 development uses `toyota_archive_working.db`.
+- The stable v0.4.2 snapshot remains `toyota_archive_v0.4.2.db`.
+
+## v0.4.4 - Unified Knowledge API
+
+### Added
+
+- Added `knowledge.api.KnowledgeBase`.
+- Added structured dataclasses for component summaries, documents, procedures, quality, and unified component knowledge.
+- Added `docs/KNOWLEDGE_API_v0.4.4.md`.
+- Added tests for `KnowledgeBase.get_component()`.
+- Added `api_version = "0.4.4"` on component knowledge results.
+- Added API behavior tests for missing components, alias resolution, result ordering, and connection ownership.
+
+### Changed
+
+- `component` and `procedure` CLI commands now read through the knowledge API instead of composing table joins directly.
+- Component documents are ordered by confidence, occurrence count, reference, and page.
+- Component procedures are ordered by procedure type, confidence, step count, reference, and page.
+
+### Verification
+
+- Stable release database snapshot: `toyota_archive_v0.4.4.db`.
+- Tests: 13 passing.
+- `PRAGMA foreign_key_check` returned no violations.
+
 ## v0.4.2 - Procedure Knowledge Base
 
 Release date: 2026-07-18

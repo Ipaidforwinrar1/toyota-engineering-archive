@@ -1,6 +1,7 @@
-# Toyota Engineering Archive v0.4.2
+# Toyota Engineering Archive v0.4.4
 
 This release adds data-driven **Component** and **Procedure** knowledge bases to the existing v0.3 archive.
+v0.4.4 adds a unified Knowledge API for CLI, future web UI, REST API, and assistant interfaces.
 
 ## Features
 
@@ -10,6 +11,8 @@ This release adds data-driven **Component** and **Procedure** knowledge bases to
 - Rule-based component extraction
 - Page/document occurrence indexing with document title, reference, category, and section metadata
 - Procedure extraction for Removal, Installation, Disassembly, Reassembly, Inspection, Adjustment, and Replacement
+- Component quality metadata and confidence-weighted ranking on the development branch
+- Unified knowledge API for CLI, future web UI, REST API, and assistant interfaces
 - Component search with optional context
 - Procedure search by component
 - Extraction history and statistics
@@ -31,6 +34,15 @@ py .\cli.py --db .\toyota_archive_v0.4.db extract-procedures --limit 100
 
 py .\cli.py --db .\toyota_archive_v0.4.db procedure "Fuel Injector"
 ```
+
+## Tests
+
+```powershell
+py -m unittest discover -v
+```
+
+The test suite covers procedure heading detection, component alias matching,
+duplicate protection, foreign-key integrity, and CLI procedure output.
 
 After the test:
 

@@ -2,13 +2,13 @@ from pathlib import Path
 from datetime import datetime, timezone
 import argparse, csv, sqlite3, sys
 
-from database.db import connect, apply_schema, ensure_v041_component_schema
+from database.db import connect, apply_schema, ensure_v041_component_schema, ensure_v043_quality_schema
 from database.catalog_adapter import discover_text_source, iter_source_documents
+from knowledge.api import KnowledgeBase
 from knowledge.normalize import normalize_term
+from knowledge.component_quality import component_confidence, load_quality_by_component, load_terms_by_component
 from extractors.component_extractor import compile_patterns, extract_components
 from extractors.procedure_extractor import extract_procedure_blocks
-from search.component_search import search_components, component_details
-from search.procedure_search import procedure_details, procedure_type_counts
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(errors="replace")
@@ -16,9 +16,10 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(errors="replace")
 
 BASE = Path(__file__).resolve().parent
-SCHEMA = BASE/"database/schema_v0.4.2.sql"
+SCHEMA = BASE/"database/schema_v0.4.3.sql"
 COMPONENTS = BASE/"data/components.csv"
 ALIASES = BASE/"data/aliases.csv"
+GENERIC_COMPONENTS = BASE/"data/generic_components.csv"
 
 def now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -32,10 +33,14 @@ def load_component_patterns(conn):
         raise SystemExit("Run init first.")
     return compile_patterns((r[0],r[1],r[2]) for r in rows)
 
+def ensure_current_schema(conn):
+    ensure_v041_component_schema(conn)
+    ensure_v043_quality_schema(conn)
+    apply_schema(conn, SCHEMA)
+
 def cmd_init(a):
     conn = connect(a.db)
-    ensure_v041_component_schema(conn)
-    apply_schema(conn, SCHEMA)
+    ensure_current_schema(conn)
     with COMPONENTS.open(encoding="utf-8-sig", newline="") as f:
         components = list(csv.DictReader(f))
     with conn:
@@ -69,9 +74,28 @@ def cmd_init(a):
                            VALUES(?,?,?) ON CONFLICT(normalized_alias) DO UPDATE SET
                            component_id=excluded.component_id, alias=excluded.alias''',
                         (cid, alias, normalize_term(alias)))
+        if GENERIC_COMPONENTS.exists():
+            with GENERIC_COMPONENTS.open(encoding="utf-8-sig", newline="") as f:
+                for r in csv.DictReader(f):
+                    cid = ids.get(normalize_term(r["canonical_name"]))
+                    if cid:
+                        conn.execute(
+                            '''INSERT INTO component_quality(component_id,is_generic,quality_weight,notes,updated_at)
+                               VALUES(?,1,?,?,CURRENT_TIMESTAMP)
+                               ON CONFLICT(component_id) DO UPDATE SET
+                               is_generic=excluded.is_generic,
+                               quality_weight=excluded.quality_weight,
+                               notes=excluded.notes,
+                               updated_at=CURRENT_TIMESTAMP''',
+                            (cid, float(r["quality_weight"]), r["notes"].strip()))
+        conn.execute(
+            '''INSERT OR IGNORE INTO component_quality(component_id,is_generic,quality_weight,notes)
+               SELECT component_id,0,1.0,'' FROM components'''
+        )
     print(f"Initialized {a.db}")
     print("Components:", conn.execute("SELECT COUNT(*) FROM components").fetchone()[0])
     print("Aliases:   ", conn.execute("SELECT COUNT(*) FROM component_aliases").fetchone()[0])
+    print("Generic:   ", conn.execute("SELECT COUNT(*) FROM component_quality WHERE is_generic=1").fetchone()[0])
 
 def cmd_detect(a):
     conn = connect(a.db)
@@ -82,9 +106,10 @@ def cmd_detect(a):
 
 def cmd_extract(a):
     conn = connect(a.db)
-    ensure_v041_component_schema(conn)
-    apply_schema(conn, SCHEMA)
+    ensure_current_schema(conn)
     patterns = load_component_patterns(conn)
+    quality_by_component = load_quality_by_component(conn)
+    terms_by_component = load_terms_by_component(conn)
     run_id = conn.execute(
         "INSERT INTO component_extraction_runs(started_at,status) VALUES(?,'running')",(now(),)
     ).lastrowid
@@ -103,8 +128,17 @@ def cmd_extract(a):
                 mentions = extract_components(src.text, patterns)
                 with conn:
                     for m in mentions:
+                        confidence = component_confidence(
+                            m.canonical_name,
+                            m.count,
+                            title=src.title,
+                            section_path=src.section_path,
+                            context=m.first_context,
+                            quality=quality_by_component.get(m.component_id),
+                            terms=terms_by_component.get(m.component_id),
+                        )
                         current = conn.execute(
-                            '''SELECT reference_id, occurrence_count, first_context
+                            '''SELECT reference_id, occurrence_count, confidence, first_context
                                FROM document_components
                                WHERE document_id=? AND component_id=? AND page_number IS ?''',
                             (src.document_id, m.component_id, src.page_number)
@@ -113,10 +147,10 @@ def cmd_extract(a):
                             conn.execute(
                                 '''INSERT INTO document_components(
                                    document_id,reference_id,component_id,page_number,
-                                   occurrence_count,first_context,extracted_at)
-                                   VALUES(?,?,?,?,?,?,?)''',
+                                   occurrence_count,confidence,first_context,extracted_at)
+                                   VALUES(?,?,?,?,?,?,?,?)''',
                                 (src.document_id,src.reference_id,m.component_id,src.page_number,
-                                 m.count,m.first_context,now()))
+                                 m.count,confidence,m.first_context,now()))
                             inserted += 1
                             continue
 
@@ -124,6 +158,7 @@ def cmd_extract(a):
                         changed = (
                             current["reference_id"] != src.reference_id or
                             current["occurrence_count"] != m.count or
+                            current["confidence"] != confidence or
                             current["first_context"] != m.first_context
                         )
                         if changed:
@@ -131,10 +166,11 @@ def cmd_extract(a):
                                 '''UPDATE document_components
                                    SET reference_id=?,
                                        occurrence_count=?,
+                                       confidence=?,
                                        first_context=?,
                                        extracted_at=?
                                    WHERE document_id=? AND component_id=? AND page_number IS ?''',
-                                (src.reference_id,m.count,m.first_context,now(),
+                                (src.reference_id,m.count,confidence,m.first_context,now(),
                                  src.document_id,m.component_id,src.page_number))
                             updated += 1
                 processed += 1
@@ -182,9 +218,10 @@ def iter_procedure_pages(conn):
 
 def cmd_extract_procedures(a):
     conn = connect(a.db)
-    ensure_v041_component_schema(conn)
-    apply_schema(conn, SCHEMA)
+    ensure_current_schema(conn)
     patterns = load_component_patterns(conn)
+    quality_by_component = load_quality_by_component(conn)
+    terms_by_component = load_terms_by_component(conn)
     deleted = 0
     if a.rebuild:
         deleted = conn.execute("DELETE FROM procedures").rowcount
@@ -210,8 +247,17 @@ def cmd_extract_procedures(a):
                         association_text = f"{block.title} {block.context}"
                         mentions = extract_components(association_text, patterns)
                         for mention in mentions:
+                            confidence = component_confidence(
+                                mention.canonical_name,
+                                mention.count,
+                                title=block.title,
+                                section_path=page["section_path"],
+                                context=block.context,
+                                quality=quality_by_component.get(mention.component_id),
+                                terms=terms_by_component.get(mention.component_id),
+                            )
                             current = conn.execute(
-                                '''SELECT context, step_count
+                                '''SELECT context, step_count, confidence
                                    FROM procedures
                                    WHERE component_id=? AND document_id=? AND page_number=?
                                      AND procedure_type=? AND title IS ?''',
@@ -222,22 +268,26 @@ def cmd_extract_procedures(a):
                                 conn.execute(
                                     '''INSERT INTO procedures(
                                        component_id,document_id,page_number,procedure_type,
-                                       title,context,step_count,extracted_at)
-                                       VALUES(?,?,?,?,?,?,?,?)''',
+                                       title,context,step_count,confidence,extracted_at)
+                                       VALUES(?,?,?,?,?,?,?,?,?)''',
                                     (mention.component_id,page["document_id"],page["page_number"],
                                      block.procedure_type,block.title,block.context,
-                                     block.step_count,now()))
+                                     block.step_count,confidence,now()))
                                 inserted += 1
                                 continue
 
                             existing += 1
-                            if current["context"] != block.context or current["step_count"] != block.step_count:
+                            if (
+                                current["context"] != block.context or
+                                current["step_count"] != block.step_count or
+                                current["confidence"] != confidence
+                            ):
                                 conn.execute(
                                     '''UPDATE procedures
-                                       SET context=?, step_count=?, extracted_at=?
+                                       SET context=?, step_count=?, confidence=?, extracted_at=?
                                        WHERE component_id=? AND document_id=? AND page_number=?
                                          AND procedure_type=? AND title IS ?''',
-                                    (block.context,block.step_count,now(),mention.component_id,
+                                    (block.context,block.step_count,confidence,now(),mention.component_id,
                                      page["document_id"],page["page_number"],block.procedure_type,
                                      block.title))
                                 updated += 1
@@ -261,67 +311,86 @@ def cmd_extract_procedures(a):
 
 def cmd_component(a):
     conn = connect(a.db)
-    rows = search_components(conn, a.query, a.limit)
-    if not rows:
-        print("No matching component.")
-        return
-    for r in rows:
-        print(f"{r['component_id']:4} | {r['canonical_name']} | {r['system_name']} | "
-              f"{r['document_count']} documents | {r['occurrence_count']} occurrences")
-    if a.details or (len(rows)==1 and not a.procedures):
-        c, docs = component_details(conn, rows[0]["component_id"], a.doc_limit)
-        print(f"\n{c['canonical_name']} - {c['system_name']}")
-        for d in docs:
-            ref = d["reference_id"] or str(d["document_id"])
-            category = d["manual_type_normalized"] or d["system_name"] or ""
-            print(f"  Component: {c['canonical_name']}")
-            print(f"  Document:  {d['title']}")
-            print(f"  Reference: {ref}")
-            print(f"  Category:  {category}")
-            if d["section_path"]:
-                print(f"  Section:   {d['section_path']}")
-            print(f"  Page:      {d['page_number']}")
-            print(f"  Mentions:  {d['occurrence_count']}")
-            if a.context and d["first_context"]:
-                print("  Context:")
-                print("   ", d["first_context"])
-            print()
-    if a.procedures:
+    try:
+        ensure_current_schema(conn)
+        kb = KnowledgeBase(conn)
+        rows = kb.search_components(a.query, a.limit)
+        if not rows:
+            print("No matching component.")
+            return
         for r in rows:
-            counts = procedure_type_counts(conn, r["component_id"])
-            if not counts:
-                continue
-            print(f"\n{r['canonical_name']} procedures")
-            for item in counts:
-                print(f"  {item['procedure_type']}: {item['procedure_count']}")
+            generic = " generic" if r.is_generic else ""
+            print(f"{r.component_id:4} | {r.canonical_name} | {r.system_name} | "
+                  f"{r.document_count} documents | {r.occurrence_count} occurrences | "
+                  f"score {r.weighted_score:.1f} | confidence {r.average_confidence:.2f}{generic}")
+        if a.details or (len(rows)==1 and not a.procedures):
+            item = kb.get_component(a.query, document_limit=a.doc_limit, procedure_limit=0)
+            if not item:
+                return
+            print(f"\n{item.component.canonical_name} - {item.component.system_name}")
+            for d in item.documents:
+                print(f"  Component: {item.component.canonical_name}")
+                print(f"  Document:  {d.title}")
+                print(f"  Reference: {d.reference_id}")
+                print(f"  Category:  {d.category}")
+                if d.section_path:
+                    print(f"  Section:   {d.section_path}")
+                print(f"  Page:      {d.page_number}")
+                print(f"  Mentions:  {d.occurrence_count}")
+                print(f"  Confidence:{d.confidence:.2f}")
+                if a.context and d.first_context:
+                    print("  Context:")
+                    print("   ", d.first_context)
+                print()
+        if a.procedures:
+            for r in rows:
+                item = kb.get_component(r.canonical_name, document_limit=0, procedure_limit=0)
+                if not item or not item.procedure_counts:
+                    continue
+                print(f"\n{item.component.canonical_name} procedures")
+                for procedure_type, count in item.procedure_counts:
+                    print(f"  {procedure_type}: {count}")
+    finally:
+        conn.close()
 
 def cmd_procedure(a):
     conn = connect(a.db)
-    rows = search_components(conn, a.query, a.limit)
-    if not rows:
-        print("No matching component.")
-        return
-    for component in rows:
-        procedures = procedure_details(conn, component["component_id"], a.type, a.doc_limit)
-        if not procedures:
-            continue
-        print(f"\n{component['canonical_name']}")
-        last_type = None
-        for proc in procedures:
-            if proc["procedure_type"] != last_type:
-                last_type = proc["procedure_type"]
-                print(f"\n{last_type}")
-                print("-" * len(last_type))
-            category = proc["manual_type_normalized"] or proc["system_name"] or ""
-            print(f"{proc['document_title']} | {category} | {proc['reference_id']} | page {proc['page_number']}")
-            if proc["step_count"]:
-                print(f"Steps detected: {proc['step_count']}")
-            if a.context:
-                print(proc["context"])
-            print()
+    try:
+        ensure_current_schema(conn)
+        kb = KnowledgeBase(conn)
+        rows = kb.search_components(a.query, a.limit)
+        if not rows:
+            print("No matching component.")
+            return
+        for component in rows:
+            item = kb.get_component(
+                component.canonical_name,
+                document_limit=0,
+                procedure_limit=a.doc_limit,
+                procedure_type=a.type,
+            )
+            if not item or not item.procedures:
+                continue
+            print(f"\n{item.component.canonical_name}")
+            last_type = None
+            for proc in item.procedures:
+                if proc.procedure_type != last_type:
+                    last_type = proc.procedure_type
+                    print(f"\n{last_type}")
+                    print("-" * len(last_type))
+                print(f"{proc.document_title} | {proc.category} | {proc.reference_id} | page {proc.page_number}")
+                if proc.step_count:
+                    print(f"Steps detected: {proc.step_count}")
+                print(f"Confidence: {proc.confidence:.2f}")
+                if a.context:
+                    print(proc.context)
+                print()
+    finally:
+        conn.close()
 
 def cmd_stats(a):
     conn = connect(a.db)
+    ensure_current_schema(conn)
     for label, sql in [
         ("Components","SELECT COUNT(*) FROM components"),
         ("Aliases","SELECT COUNT(*) FROM component_aliases"),
@@ -329,11 +398,13 @@ def cmd_stats(a):
         ("Documents represented","SELECT COUNT(DISTINCT document_id) FROM document_components"),
         ("Total occurrences","SELECT COALESCE(SUM(occurrence_count),0) FROM document_components"),
         ("Procedures","SELECT COUNT(*) FROM procedures"),
-        ("Procedure components","SELECT COUNT(DISTINCT component_id) FROM procedures")]:
+        ("Procedure components","SELECT COUNT(DISTINCT component_id) FROM procedures"),
+        ("Generic components","SELECT COUNT(*) FROM component_quality WHERE is_generic=1"),
+        ("Low confidence rows","SELECT COUNT(*) FROM document_components WHERE confidence < 0.4")]:
         print(f"{label:24} {conn.execute(sql).fetchone()[0]:,}")
 
 def main():
-    p=argparse.ArgumentParser(description="Toyota Engineering Archive v0.4.2")
+    p=argparse.ArgumentParser(description="Toyota Engineering Archive v0.4.3")
     p.add_argument("--db", type=Path, default=BASE/"toyota_archive_v0.4.db")
     s=p.add_subparsers(dest="cmd", required=True)
     x=s.add_parser("init"); x.set_defaults(func=cmd_init)
