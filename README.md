@@ -32,6 +32,15 @@ py .\cli.py --db .\toyota_archive_v0.4.db extract-procedures --limit 100
 py .\cli.py --db .\toyota_archive_v0.4.db procedure "Fuel Injector"
 ```
 
+## Tests
+
+```powershell
+py -m unittest discover -v
+```
+
+The test suite covers procedure heading detection, component alias matching,
+duplicate protection, foreign-key integrity, and CLI procedure output.
+
 After the test:
 
 ```powershell

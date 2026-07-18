@@ -297,28 +297,31 @@ def cmd_component(a):
 
 def cmd_procedure(a):
     conn = connect(a.db)
-    rows = search_components(conn, a.query, a.limit)
-    if not rows:
-        print("No matching component.")
-        return
-    for component in rows:
-        procedures = procedure_details(conn, component["component_id"], a.type, a.doc_limit)
-        if not procedures:
-            continue
-        print(f"\n{component['canonical_name']}")
-        last_type = None
-        for proc in procedures:
-            if proc["procedure_type"] != last_type:
-                last_type = proc["procedure_type"]
-                print(f"\n{last_type}")
-                print("-" * len(last_type))
-            category = proc["manual_type_normalized"] or proc["system_name"] or ""
-            print(f"{proc['document_title']} | {category} | {proc['reference_id']} | page {proc['page_number']}")
-            if proc["step_count"]:
-                print(f"Steps detected: {proc['step_count']}")
-            if a.context:
-                print(proc["context"])
-            print()
+    try:
+        rows = search_components(conn, a.query, a.limit)
+        if not rows:
+            print("No matching component.")
+            return
+        for component in rows:
+            procedures = procedure_details(conn, component["component_id"], a.type, a.doc_limit)
+            if not procedures:
+                continue
+            print(f"\n{component['canonical_name']}")
+            last_type = None
+            for proc in procedures:
+                if proc["procedure_type"] != last_type:
+                    last_type = proc["procedure_type"]
+                    print(f"\n{last_type}")
+                    print("-" * len(last_type))
+                category = proc["manual_type_normalized"] or proc["system_name"] or ""
+                print(f"{proc['document_title']} | {category} | {proc['reference_id']} | page {proc['page_number']}")
+                if proc["step_count"]:
+                    print(f"Steps detected: {proc['step_count']}")
+                if a.context:
+                    print(proc["context"])
+                print()
+    finally:
+        conn.close()
 
 def cmd_stats(a):
     conn = connect(a.db)
