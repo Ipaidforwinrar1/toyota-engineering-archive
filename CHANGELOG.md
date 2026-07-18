@@ -23,6 +23,19 @@
 - v0.4.3 development uses `toyota_archive_working.db`.
 - The stable v0.4.2 snapshot remains `toyota_archive_v0.4.2.db`.
 
+## v0.4.4-dev - Unified Knowledge API
+
+### Added
+
+- Added `knowledge.api.KnowledgeBase`.
+- Added structured dataclasses for component summaries, documents, procedures, quality, and unified component knowledge.
+- Added `docs/KNOWLEDGE_API_v0.4.4.md`.
+- Added tests for `KnowledgeBase.get_component()`.
+
+### Changed
+
+- `component` and `procedure` CLI commands now read through the knowledge API instead of composing table joins directly.
+
 ## v0.4.2 - Procedure Knowledge Base
 
 Release date: 2026-07-18

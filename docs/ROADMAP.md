@@ -21,6 +21,8 @@ Initial quality controls:
 
 ### v0.4.4: Engineering Specifications
 
+First introduce a unified knowledge API so future CLI, web, REST, and assistant interfaces do not query schema tables directly.
+
 Start with preserved original text before aggressive normalization.
 
 Initial specification types:

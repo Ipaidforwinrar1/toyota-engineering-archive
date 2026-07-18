@@ -4,12 +4,11 @@ import argparse, csv, sqlite3, sys
 
 from database.db import connect, apply_schema, ensure_v041_component_schema, ensure_v043_quality_schema
 from database.catalog_adapter import discover_text_source, iter_source_documents
+from knowledge.api import KnowledgeBase
 from knowledge.normalize import normalize_term
 from knowledge.component_quality import component_confidence, load_quality_by_component, load_terms_by_component
 from extractors.component_extractor import compile_patterns, extract_components
 from extractors.procedure_extractor import extract_procedure_blocks
-from search.component_search import search_components, component_details
-from search.procedure_search import procedure_details, procedure_type_counts
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(errors="replace")
@@ -312,70 +311,79 @@ def cmd_extract_procedures(a):
 
 def cmd_component(a):
     conn = connect(a.db)
-    ensure_current_schema(conn)
-    rows = search_components(conn, a.query, a.limit)
-    if not rows:
-        print("No matching component.")
-        return
-    for r in rows:
-        generic = " generic" if r["is_generic"] else ""
-        print(f"{r['component_id']:4} | {r['canonical_name']} | {r['system_name']} | "
-              f"{r['document_count']} documents | {r['occurrence_count']} occurrences | "
-              f"score {r['weighted_score']:.1f} | confidence {r['average_confidence']:.2f}{generic}")
-    if a.details or (len(rows)==1 and not a.procedures):
-        c, docs = component_details(conn, rows[0]["component_id"], a.doc_limit)
-        print(f"\n{c['canonical_name']} - {c['system_name']}")
-        for d in docs:
-            ref = d["reference_id"] or str(d["document_id"])
-            category = d["manual_type_normalized"] or d["system_name"] or ""
-            print(f"  Component: {c['canonical_name']}")
-            print(f"  Document:  {d['title']}")
-            print(f"  Reference: {ref}")
-            print(f"  Category:  {category}")
-            if d["section_path"]:
-                print(f"  Section:   {d['section_path']}")
-            print(f"  Page:      {d['page_number']}")
-            print(f"  Mentions:  {d['occurrence_count']}")
-            print(f"  Confidence:{d['confidence']:.2f}")
-            if a.context and d["first_context"]:
-                print("  Context:")
-                print("   ", d["first_context"])
-            print()
-    if a.procedures:
+    try:
+        ensure_current_schema(conn)
+        kb = KnowledgeBase(conn)
+        rows = kb.search_components(a.query, a.limit)
+        if not rows:
+            print("No matching component.")
+            return
         for r in rows:
-            counts = procedure_type_counts(conn, r["component_id"])
-            if not counts:
-                continue
-            print(f"\n{r['canonical_name']} procedures")
-            for item in counts:
-                print(f"  {item['procedure_type']}: {item['procedure_count']}")
+            generic = " generic" if r.is_generic else ""
+            print(f"{r.component_id:4} | {r.canonical_name} | {r.system_name} | "
+                  f"{r.document_count} documents | {r.occurrence_count} occurrences | "
+                  f"score {r.weighted_score:.1f} | confidence {r.average_confidence:.2f}{generic}")
+        if a.details or (len(rows)==1 and not a.procedures):
+            item = kb.get_component(a.query, document_limit=a.doc_limit, procedure_limit=0)
+            if not item:
+                return
+            print(f"\n{item.component.canonical_name} - {item.component.system_name}")
+            for d in item.documents:
+                print(f"  Component: {item.component.canonical_name}")
+                print(f"  Document:  {d.title}")
+                print(f"  Reference: {d.reference_id}")
+                print(f"  Category:  {d.category}")
+                if d.section_path:
+                    print(f"  Section:   {d.section_path}")
+                print(f"  Page:      {d.page_number}")
+                print(f"  Mentions:  {d.occurrence_count}")
+                print(f"  Confidence:{d.confidence:.2f}")
+                if a.context and d.first_context:
+                    print("  Context:")
+                    print("   ", d.first_context)
+                print()
+        if a.procedures:
+            for r in rows:
+                item = kb.get_component(r.canonical_name, document_limit=0, procedure_limit=0)
+                if not item or not item.procedure_counts:
+                    continue
+                print(f"\n{item.component.canonical_name} procedures")
+                for procedure_type, count in item.procedure_counts:
+                    print(f"  {procedure_type}: {count}")
+    finally:
+        conn.close()
 
 def cmd_procedure(a):
     conn = connect(a.db)
     try:
         ensure_current_schema(conn)
-        rows = search_components(conn, a.query, a.limit)
+        kb = KnowledgeBase(conn)
+        rows = kb.search_components(a.query, a.limit)
         if not rows:
             print("No matching component.")
             return
         for component in rows:
-            procedures = procedure_details(conn, component["component_id"], a.type, a.doc_limit)
-            if not procedures:
+            item = kb.get_component(
+                component.canonical_name,
+                document_limit=0,
+                procedure_limit=a.doc_limit,
+                procedure_type=a.type,
+            )
+            if not item or not item.procedures:
                 continue
-            print(f"\n{component['canonical_name']}")
+            print(f"\n{item.component.canonical_name}")
             last_type = None
-            for proc in procedures:
-                if proc["procedure_type"] != last_type:
-                    last_type = proc["procedure_type"]
+            for proc in item.procedures:
+                if proc.procedure_type != last_type:
+                    last_type = proc.procedure_type
                     print(f"\n{last_type}")
                     print("-" * len(last_type))
-                category = proc["manual_type_normalized"] or proc["system_name"] or ""
-                print(f"{proc['document_title']} | {category} | {proc['reference_id']} | page {proc['page_number']}")
-                if proc["step_count"]:
-                    print(f"Steps detected: {proc['step_count']}")
-                print(f"Confidence: {proc['confidence']:.2f}")
+                print(f"{proc.document_title} | {proc.category} | {proc.reference_id} | page {proc.page_number}")
+                if proc.step_count:
+                    print(f"Steps detected: {proc.step_count}")
+                print(f"Confidence: {proc.confidence:.2f}")
                 if a.context:
-                    print(proc["context"])
+                    print(proc.context)
                 print()
     finally:
         conn.close()
