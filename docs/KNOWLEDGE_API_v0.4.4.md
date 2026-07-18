@@ -15,6 +15,23 @@ kb = KnowledgeBase(conn)
 item = kb.get_component("Fuel Injector")
 ```
 
+## Version
+
+Every `ComponentKnowledge` result exposes:
+
+```python
+item.api_version == "0.4.4"
+```
+
+## Behavior Contract
+
+- Missing components return `None`.
+- Ambiguous component queries resolve to the highest-ranked component from `search_components()`.
+- Aliases are returned in deterministic case-insensitive order.
+- Documents are ordered by confidence, occurrence count, reference, and page.
+- Procedures are ordered by procedure type, confidence, step count, reference, and page.
+- `KnowledgeBase` does not close connections supplied by the caller. The caller owns connection lifetime.
+
 ## Component Knowledge Object
 
 `get_component()` returns a `ComponentKnowledge` object with:

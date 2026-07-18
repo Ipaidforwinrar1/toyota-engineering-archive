@@ -22,7 +22,11 @@ def procedure_details(conn, component_id, procedure_type=None, limit=50):
         FROM procedures p
         JOIN documents d ON d.id = p.document_id
         WHERE {' AND '.join(where)}
-        ORDER BY p.procedure_type, d.reference_id, p.page_number
+        ORDER BY p.procedure_type,
+                 p.confidence DESC,
+                 p.step_count DESC,
+                 d.reference_id,
+                 p.page_number
         LIMIT ?
         ''',
         values,
@@ -32,11 +36,13 @@ def procedure_details(conn, component_id, procedure_type=None, limit=50):
 def procedure_type_counts(conn, component_id):
     return conn.execute(
         '''
-        SELECT procedure_type, COUNT(*) AS procedure_count
+        SELECT procedure_type,
+               COUNT(*) AS procedure_count,
+               COALESCE(AVG(confidence),0) AS average_confidence
         FROM procedures
         WHERE component_id=?
         GROUP BY procedure_type
-        ORDER BY procedure_type
+        ORDER BY average_confidence DESC, procedure_count DESC, procedure_type
         ''',
         (component_id,),
     ).fetchall()

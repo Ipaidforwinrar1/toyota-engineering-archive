@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 from search.component_search import component_details, search_components
 from search.procedure_search import procedure_details, procedure_type_counts
 
+API_VERSION = "0.4.4"
+
 
 @dataclass(frozen=True)
 class ComponentSummary:
@@ -65,6 +67,7 @@ class ComponentKnowledge:
     procedure_counts: tuple[tuple[str, int], ...] = field(default_factory=tuple)
     statistics: dict[str, int | float] = field(default_factory=dict)
     related_items: tuple[str, ...] = field(default_factory=tuple)
+    api_version: str = API_VERSION
 
 
 def _summary_from_row(row):

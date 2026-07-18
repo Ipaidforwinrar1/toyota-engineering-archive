@@ -1,7 +1,7 @@
-# Toyota Engineering Archive v0.4.2
+# Toyota Engineering Archive v0.4.4
 
 This release adds data-driven **Component** and **Procedure** knowledge bases to the existing v0.3 archive.
-The `develop` branch is currently preparing v0.4.4 Unified Knowledge API work.
+v0.4.4 adds a unified Knowledge API for CLI, future web UI, REST API, and assistant interfaces.
 
 ## Features
 

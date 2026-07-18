@@ -44,6 +44,12 @@ class KnowledgeApiTests(unittest.TestCase):
             VALUES('TEA-TEST', 'uid-1', 'REMOVAL', 'Engine Repair Manual', 'Engine', 'FUEL / INJECTOR')
             """
         ).lastrowid
+        second_doc_id = self.conn.execute(
+            """
+            INSERT INTO documents(reference_id, document_uid, title, manual_type_normalized, system_name, section_path)
+            VALUES('TEA-SECOND', 'uid-2', 'INSTALLATION', 'Engine Repair Manual', 'Engine', 'FUEL / INJECTOR')
+            """
+        ).lastrowid
         component_id = self.conn.execute(
             """
             INSERT INTO components(canonical_name, normalized_name, system_name)
@@ -52,6 +58,10 @@ class KnowledgeApiTests(unittest.TestCase):
         ).lastrowid
         self.conn.execute(
             "INSERT INTO component_aliases(component_id, alias, normalized_alias) VALUES(?, 'Injector', 'injector')",
+            (component_id,),
+        )
+        self.conn.execute(
+            "INSERT INTO component_aliases(component_id, alias, normalized_alias) VALUES(?, 'Fuel Injector', 'fuel injector')",
             (component_id,),
         )
         self.conn.execute(
@@ -66,6 +76,16 @@ class KnowledgeApiTests(unittest.TestCase):
         )
         self.conn.execute(
             """
+            INSERT INTO document_components(
+                document_id, reference_id, component_id, page_number,
+                occurrence_count, confidence, first_context
+            )
+            VALUES(?, 'TEA-SECOND', ?, 1, 10, 0.30, 'Mentioned in a note.')
+            """,
+            (second_doc_id, component_id),
+        )
+        self.conn.execute(
+            """
             INSERT INTO procedures(
                 component_id, document_id, page_number, procedure_type,
                 title, context, step_count, confidence
@@ -73,6 +93,36 @@ class KnowledgeApiTests(unittest.TestCase):
             VALUES(?, ?, 1, 'Removal', 'REMOVAL', '1. REMOVE INJECTOR', 1, 0.9)
             """,
             (component_id, doc_id),
+        )
+        self.conn.execute(
+            """
+            INSERT INTO procedures(
+                component_id, document_id, page_number, procedure_type,
+                title, context, step_count, confidence
+            )
+            VALUES(?, ?, 1, 'Removal', 'REMOVAL', '1. REMOVE FROM NOTE', 4, 0.3)
+            """,
+            (component_id, second_doc_id),
+        )
+        second_component_id = self.conn.execute(
+            """
+            INSERT INTO components(canonical_name, normalized_name, system_name)
+            VALUES('Injector Driver', 'injector driver', 'Engine Control')
+            """
+        ).lastrowid
+        self.conn.execute(
+            "INSERT INTO component_aliases(component_id, alias, normalized_alias) VALUES(?, 'Injector Driver', 'injector driver')",
+            (second_component_id,),
+        )
+        self.conn.execute(
+            """
+            INSERT INTO document_components(
+                document_id, reference_id, component_id, page_number,
+                occurrence_count, confidence, first_context
+            )
+            VALUES(?, 'TEA-SECOND', ?, 1, 1, 0.4, 'Injector driver mention.')
+            """,
+            (second_doc_id, second_component_id),
         )
         self.conn.commit()
 
@@ -83,15 +133,29 @@ class KnowledgeApiTests(unittest.TestCase):
     def test_get_component_returns_unified_object(self):
         item = KnowledgeBase(self.conn).get_component("Injector")
 
+        self.assertEqual(item.api_version, "0.4.4")
         self.assertEqual(item.component.canonical_name, "Fuel Injector")
-        self.assertEqual(item.aliases, ("Injector",))
-        self.assertEqual(item.statistics["document_count"], 1)
+        self.assertEqual(item.aliases, ("Fuel Injector", "Injector"))
+        self.assertEqual(item.statistics["document_count"], 2)
         self.assertEqual(item.documents[0].reference_id, "TEA-TEST")
+        self.assertGreater(item.documents[0].confidence, item.documents[1].confidence)
         self.assertEqual(item.procedures[0].procedure_type, "Removal")
-        self.assertEqual(item.procedure_counts, (("Removal", 1),))
+        self.assertGreater(item.procedures[0].confidence, item.procedures[1].confidence)
+        self.assertEqual(item.procedure_counts, (("Removal", 2),))
 
     def test_missing_component_returns_none(self):
         self.assertIsNone(KnowledgeBase(self.conn).get_component("No Such Part"))
+
+    def test_ambiguous_alias_resolves_to_highest_ranked_component(self):
+        item = KnowledgeBase(self.conn).get_component("Injector")
+
+        self.assertEqual(item.component.canonical_name, "Fuel Injector")
+
+    def test_connection_is_owned_by_caller(self):
+        kb = KnowledgeBase(self.conn)
+        self.assertIsNotNone(kb.get_component("Injector"))
+
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM components").fetchone()[0], 2)
 
 
 if __name__ == "__main__":

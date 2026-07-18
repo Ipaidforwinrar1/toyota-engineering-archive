@@ -1,2 +1,2 @@
-Toyota Engineering Archive v0.4.4-dev
+Toyota Engineering Archive v0.4.4
 Unified Knowledge API

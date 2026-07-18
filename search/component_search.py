@@ -56,7 +56,10 @@ def component_details(conn, component_id, limit=100):
         FROM document_components dc
         JOIN documents d ON d.id = dc.document_id
         WHERE dc.component_id=?
-        ORDER BY dc.occurrence_count DESC, d.reference_id, dc.page_number LIMIT ?
+        ORDER BY dc.confidence DESC,
+                 dc.occurrence_count DESC,
+                 d.reference_id,
+                 dc.page_number LIMIT ?
         ''', (component_id, limit)
     ).fetchall()
     return c, docs
