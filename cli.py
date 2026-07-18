@@ -34,11 +34,14 @@ def load_component_patterns(conn):
         raise SystemExit("Run init first.")
     return compile_patterns((r[0],r[1],r[2]) for r in rows)
 
-def cmd_init(a):
-    conn = connect(a.db)
+def ensure_current_schema(conn):
     ensure_v041_component_schema(conn)
     ensure_v043_quality_schema(conn)
     apply_schema(conn, SCHEMA)
+
+def cmd_init(a):
+    conn = connect(a.db)
+    ensure_current_schema(conn)
     with COMPONENTS.open(encoding="utf-8-sig", newline="") as f:
         components = list(csv.DictReader(f))
     with conn:
@@ -104,9 +107,7 @@ def cmd_detect(a):
 
 def cmd_extract(a):
     conn = connect(a.db)
-    ensure_v041_component_schema(conn)
-    ensure_v043_quality_schema(conn)
-    apply_schema(conn, SCHEMA)
+    ensure_current_schema(conn)
     patterns = load_component_patterns(conn)
     quality_by_component = load_quality_by_component(conn)
     terms_by_component = load_terms_by_component(conn)
@@ -218,9 +219,7 @@ def iter_procedure_pages(conn):
 
 def cmd_extract_procedures(a):
     conn = connect(a.db)
-    ensure_v041_component_schema(conn)
-    ensure_v043_quality_schema(conn)
-    apply_schema(conn, SCHEMA)
+    ensure_current_schema(conn)
     patterns = load_component_patterns(conn)
     quality_by_component = load_quality_by_component(conn)
     terms_by_component = load_terms_by_component(conn)
@@ -313,6 +312,7 @@ def cmd_extract_procedures(a):
 
 def cmd_component(a):
     conn = connect(a.db)
+    ensure_current_schema(conn)
     rows = search_components(conn, a.query, a.limit)
     if not rows:
         print("No matching component.")
@@ -353,6 +353,7 @@ def cmd_component(a):
 def cmd_procedure(a):
     conn = connect(a.db)
     try:
+        ensure_current_schema(conn)
         rows = search_components(conn, a.query, a.limit)
         if not rows:
             print("No matching component.")
@@ -381,6 +382,7 @@ def cmd_procedure(a):
 
 def cmd_stats(a):
     conn = connect(a.db)
+    ensure_current_schema(conn)
     for label, sql in [
         ("Components","SELECT COUNT(*) FROM components"),
         ("Aliases","SELECT COUNT(*) FROM component_aliases"),

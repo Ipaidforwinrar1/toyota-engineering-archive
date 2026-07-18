@@ -3,3 +3,4 @@ __pycache__/
 .idea/
 .pytest_cache/
 toyota_archive_working.db
+_recovered/
