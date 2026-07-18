@@ -12,6 +12,7 @@ def procedure_details(conn, component_id, procedure_type=None, limit=50):
                p.title,
                p.context,
                p.step_count,
+               p.confidence,
                p.page_number,
                d.reference_id,
                d.title AS document_title,

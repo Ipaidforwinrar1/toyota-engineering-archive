@@ -38,7 +38,7 @@ def make_connection():
         );
         """
     )
-    apply_schema(conn, ROOT / "database" / "schema_v0.4.2.sql")
+    apply_schema(conn, ROOT / "database" / "schema_v0.4.3.sql")
     return conn, path
 
 
@@ -93,6 +93,27 @@ class DatabaseIntegrityTests(unittest.TestCase):
         )
 
         self.assertEqual(self.conn.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_component_quality_marks_generic_components(self):
+        self.conn, self.path = make_connection()
+        component_id = self.conn.execute(
+            "INSERT INTO components(canonical_name, normalized_name) VALUES('Connector', 'connector')"
+        ).lastrowid
+
+        self.conn.execute(
+            """
+            INSERT INTO component_quality(component_id, is_generic, quality_weight, notes)
+            VALUES(?, 1, 0.2, 'generic electrical term')
+            """,
+            (component_id,),
+        )
+
+        row = self.conn.execute(
+            "SELECT is_generic, quality_weight FROM component_quality WHERE component_id=?",
+            (component_id,),
+        ).fetchone()
+        self.assertEqual(row["is_generic"], 1)
+        self.assertEqual(row["quality_weight"], 0.2)
 
 
 if __name__ == "__main__":

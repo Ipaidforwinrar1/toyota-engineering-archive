@@ -20,6 +20,11 @@ def ensure_v041_component_schema(conn):
     conn.execute("ALTER TABLE document_components RENAME TO document_components_v040")
     conn.commit()
 
+def ensure_v043_quality_schema(conn):
+    if table_exists(conn, "procedures") and "confidence" not in column_names(conn, "procedures"):
+        conn.execute("ALTER TABLE procedures ADD COLUMN confidence REAL NOT NULL DEFAULT 1.0")
+        conn.commit()
+
 def table_exists(conn, name: str) -> bool:
     return conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)

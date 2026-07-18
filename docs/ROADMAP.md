@@ -8,7 +8,18 @@
 
 ## Next
 
-### v0.4.3: Engineering Specifications
+### v0.4.3: Knowledge Quality
+
+Improve the signal quality before adding another extraction layer.
+
+Initial quality controls:
+
+- Generic component metadata.
+- Component confidence scores.
+- Confidence-weighted component ranking.
+- Audit low-confidence and noisy associations.
+
+### v0.4.4: Engineering Specifications
 
 Start with preserved original text before aggressive normalization.
 

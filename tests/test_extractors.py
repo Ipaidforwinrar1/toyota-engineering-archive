@@ -2,6 +2,7 @@ import unittest
 
 from extractors.component_extractor import compile_patterns, extract_components
 from extractors.procedure_extractor import extract_procedure_blocks
+from knowledge.component_quality import component_confidence
 
 
 class ComponentExtractorTests(unittest.TestCase):
@@ -57,6 +58,30 @@ INSTALLATION
         self.assertEqual(blocks[0].procedure_type, "Removal")
         self.assertIn("FUEL INJECTOR", blocks[0].title)
         self.assertEqual(blocks[0].step_count, 2)
+
+
+class ComponentQualityTests(unittest.TestCase):
+    def test_generic_component_confidence_is_downweighted(self):
+        strong = component_confidence(
+            "Fuel Injector",
+            3,
+            title="INJECTOR",
+            section_path="ELECTRONIC FUEL INJECTION / INJECTOR",
+            context="Remove the fuel injector.",
+            quality={"quality_weight": 1.0},
+            terms=["Fuel Injector", "Injector"],
+        )
+        generic = component_confidence(
+            "Connector",
+            3,
+            title="Fuel Injector",
+            section_path="FUEL / FUEL INJECTOR",
+            context="Disconnect the connector.",
+            quality={"quality_weight": 0.2},
+        )
+
+        self.assertGreater(strong, 0.9)
+        self.assertLess(generic, 0.25)
 
 
 if __name__ == "__main__":

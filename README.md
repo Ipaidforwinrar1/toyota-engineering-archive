@@ -1,6 +1,7 @@
 # Toyota Engineering Archive v0.4.2
 
 This release adds data-driven **Component** and **Procedure** knowledge bases to the existing v0.3 archive.
+The `develop` branch is currently preparing v0.4.3 Knowledge Quality work.
 
 ## Features
 
@@ -10,6 +11,7 @@ This release adds data-driven **Component** and **Procedure** knowledge bases to
 - Rule-based component extraction
 - Page/document occurrence indexing with document title, reference, category, and section metadata
 - Procedure extraction for Removal, Installation, Disassembly, Reassembly, Inspection, Adjustment, and Replacement
+- Component quality metadata and confidence-weighted ranking on the development branch
 - Component search with optional context
 - Procedure search by component
 - Extraction history and statistics

@@ -40,7 +40,7 @@ class CliOutputTests(unittest.TestCase):
             );
             """
         )
-        apply_schema(self.conn, ROOT / "database" / "schema_v0.4.2.sql")
+        apply_schema(self.conn, ROOT / "database" / "schema_v0.4.3.sql")
         doc_id = self.conn.execute(
             """
             INSERT INTO documents(reference_id, document_uid, title, manual_type_normalized, system_name, section_path)
